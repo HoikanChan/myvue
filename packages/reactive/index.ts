@@ -1,14 +1,4 @@
-interface EffectFn {
-  (): void
-  deps: Set<Dep>
-  settings: EffectSettings
-}
-interface EffectSettings {
-  scheduler?: (fn: EffectFn) => void
-}
-type Dep = Set<EffectFn>
-type DepMap = Map<string | symbol, Dep>
-type RawData = Record<string | symbol, any>
+import type { Dep, DepMap, EffectFn, EffectSettings, RawData } from './types'
 
 let activeEffect: EffectFn | null = null
 const effectStack: EffectFn[] = []
