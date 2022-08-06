@@ -99,3 +99,20 @@ function cleanup(effectFn: EffectFn) {
   effectFn.deps.forEach(depSet => depSet.delete(effectFn))
   effectFn.deps.clear()
 }
+
+let isFlushing = false
+let effectQueue: EffectFn[] = []
+export function queueScheduler(fn: EffectFn) {
+  if (!effectQueue.includes(fn))
+    effectQueue.push(fn)
+
+  if (!isFlushing) {
+    isFlushing = true
+    Promise.resolve().then(() => {
+      effectQueue.forEach(fn => fn())
+    }).finally(() => {
+      isFlushing = false
+      effectQueue = []
+    })
+  }
+}

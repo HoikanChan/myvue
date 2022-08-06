@@ -1,30 +1,31 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createEffect, createReactive } from '..'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createEffect, createReactive, queueScheduler } from '..'
 import { clearLog, getLog, log } from './utils'
 
 describe('reactive', () => {
+  let commonData: { x: number }
+
+  beforeEach(() => {
+    commonData = createReactive({
+      x: 0,
+    })
+  })
+
   afterEach(() => {
     clearLog()
   })
 
   it('change the reactive data should trigger effect', () => {
-    const data = createReactive({
-      a: 1,
+    createEffect(() => {
+      log(commonData.x)
     })
 
-    createEffect(() => {
-      log(data.a)
-    })
+    commonData.x = 1
+
     expect(getLog()).toMatchInlineSnapshot(`
       [
+        0,
         1,
-      ]
-    `)
-    data.a = 2
-    expect(getLog()).toMatchInlineSnapshot(`
-      [
-        1,
-        2,
       ]
     `)
   })
@@ -118,42 +119,57 @@ describe('reactive', () => {
   })
 
   it('trigger and track happen in same effect should not cause infinite loop', () => {
-    const data = createReactive({
-      x: 0,
-    })
     const fn = vi.fn()
     createEffect(() => {
       fn()
-      data.x += data.x
+      commonData.x += commonData.x
     })
     expect(fn).toBeCalledTimes(1)
   })
 
   it('scheduler should support Promise.resolve', () => {
-    const data = createReactive({
-      x: 0,
-    })
     createEffect(() => {
-      data.x
-      log(2)
+      commonData.x
+      log(3)
     }, {
       scheduler: (fn) => {
-        Promise.resolve(() => fn())
+        Promise.resolve().then(() => fn())
       },
     })
+
     clearLog()
 
     log(1)
-    data.x = 2
-    log(3)
-    Promise.resolve(() => {
+    commonData.x = 2
+    log(2)
+
+    Promise.resolve().then(() => {
       expect(getLog()).toMatchInlineSnapshot(`
-     [
-       1,
-       2,
-       3,
-     ]
-   `)
+        [
+          1,
+          2,
+          3,
+        ]
+      `)
+    })
+  })
+
+  it('queueScheduler should merge continuous update', () => {
+    createEffect(() => {
+      log(commonData.x)
+    }, {
+      scheduler: queueScheduler,
+    })
+
+    clearLog()
+    commonData.x++
+    commonData.x++
+    Promise.resolve().then(() => {
+      expect(getLog()).toMatchInlineSnapshot(`
+        [
+          2,
+        ]
+      `)
     })
   })
 })
