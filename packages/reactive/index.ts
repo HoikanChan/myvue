@@ -1,6 +1,10 @@
 interface EffectFn {
   (): void
   deps: Set<Dep>
+  settings: EffectSettings
+}
+interface EffectSettings {
+  scheduler?: (fn: EffectFn) => void
 }
 type Dep = Set<EffectFn>
 type DepMap = Map<string | symbol, Dep>
@@ -36,8 +40,13 @@ function trigger<T extends RawData>(target: T, key: string | symbol) {
     const effectSet = depsMap.get(key)
     if (effectSet) {
       [...effectSet].forEach((effectFn) => {
-        if (effectFn !== activeEffect)
-          effectFn()
+        if (effectFn !== activeEffect) {
+          const { scheduler } = effectFn.settings
+          if (scheduler)
+            scheduler(effectFn)
+          else
+            effectFn()
+        }
       })
     }
   }
@@ -64,7 +73,7 @@ function track<T extends RawData>(target: T, key: string | symbol) {
   activeEffect.deps.add(effectSet)
 }
 
-export function createEffect(fn: () => void) {
+export function createEffect(fn: () => void, settings: EffectSettings = {}) {
   try {
     const effectFn: EffectFn = () => {
       cleanup(effectFn)
@@ -73,6 +82,7 @@ export function createEffect(fn: () => void) {
       effectStack.push(effectFn)
       fn()
     }
+    effectFn.settings = settings
     effectFn.deps = new Set<Dep>()
     effectFn()
   }

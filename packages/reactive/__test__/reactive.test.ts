@@ -128,4 +128,32 @@ describe('reactive', () => {
     })
     expect(fn).toBeCalledTimes(1)
   })
+
+  it('scheduler should support Promise.resolve', () => {
+    const data = createReactive({
+      x: 0,
+    })
+    createEffect(() => {
+      data.x
+      log(2)
+    }, {
+      scheduler: (fn) => {
+        Promise.resolve(() => fn())
+      },
+    })
+    clearLog()
+
+    log(1)
+    data.x = 2
+    log(3)
+    Promise.resolve(() => {
+      expect(getLog()).toMatchInlineSnapshot(`
+     [
+       1,
+       2,
+       3,
+     ]
+   `)
+    })
+  })
 })
