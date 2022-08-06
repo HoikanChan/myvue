@@ -1,18 +1,33 @@
 {
   "name": "myvue",
   "version": "1.0.0",
-  "description": "",
+  "description": "A tiny repo to learn about vue",
+  "author": "hoikan.chen@gmail.com",
+  "license": "ISC",
+  "keywords": ["vue", "reactive"],
   "main": "index.js",
   "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "pnpm run lint --fix",
     "test": "vitest -w",
     "coverage": "vitest run --coverage"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+
   "devDependencies": {
+    "@antfu/eslint-config": "^0.25.2",
+    "eslint": "^8.21.0",
+    "lint-staged": "^13.0.3",
+    "simple-git-hooks": "^2.8.0",
     "typescript": "^4.7.4",
     "vite": "^3.0.4",
     "vitest": "^0.20.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "eslint --fix"
+    ]
   }
 }

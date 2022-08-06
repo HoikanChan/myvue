@@ -1,10 +1,10 @@
-let logger: any[] = [];
+let logger: any[] = []
 export function log(l: any) {
-    logger.push(l)
+  logger.push(l)
 }
 export function clearLog() {
-    logger = [];
+  logger = []
 }
 export function getLog() {
-    return logger;
+  return logger
 }
