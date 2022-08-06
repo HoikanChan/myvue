@@ -1,5 +1,4 @@
-
-import { assert, describe, expect, it, afterEach } from 'vitest'
+import { assert, describe, expect, it, afterEach, vi } from 'vitest'
 import { createEffect, createReactive } from '..'
 import { clearLog, getLog, log } from './utils'
 
@@ -7,6 +6,7 @@ describe('reactive', () => {
   afterEach(() => {
     clearLog()
   })
+
   it('change the reactive data should trigger effect', () => {
     const data = createReactive({
       a: 1
@@ -86,6 +86,47 @@ describe('reactive', () => {
       "pc:0",
     ]
   `)
+  })
 
+  it('nested effect should trigger correctly', () => {
+    const data = createReactive({
+      x: 1,
+      y: -1
+    });
+    createEffect(() => {
+      log('outside');
+      createEffect(() => {
+        const y = 2 * data.y;
+        log('inside');
+      })
+      const x = 2 * data.x;
+    })
+    expect(getLog()).toMatchInlineSnapshot(`
+      [
+        "outside",
+        "inside",
+      ]
+    `)
+    clearLog();
+    data.x = 2;
+    expect(getLog()).toMatchInlineSnapshot(`
+      [
+        "outside",
+        "inside",
+      ]
+    `)
+  })
+
+  it('trigger and track happen in same effect should not cause infinite loop', () => {
+    const data = createReactive({
+      x: 0
+    });
+    let times = 0;
+    const fn = vi.fn();
+    createEffect(() => {
+      fn();
+      data.x += data.x;
+    });
+    expect(fn).toBeCalledTimes(1);
   })
 })

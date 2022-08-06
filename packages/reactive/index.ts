@@ -1,11 +1,14 @@
-type Effect = () => void;
-type Dep = Set<Effect>;
+interface EffectFn {
+  (): void,
+  deps: Set<Dep>
+};
+type Dep = Set<EffectFn>;
 type DepMap = Map<string | symbol, Dep>;
 type RawData = Record<string | symbol, any>;
 
-let activeEffect: Effect | null = null;
-let activeEffectDependencies = new WeakMap<Effect, Set<Dep>>();;
-const effectMap = new WeakMap<RawData, DepMap>();
+let activeEffect: EffectFn | null = null;
+let effectStack: EffectFn[] = [];
+const reactiveMap = new WeakMap<RawData, DepMap>();
 export function createReactive<T extends RawData>(initialData: T): T {
   const reactive = new Proxy(initialData, {
     get(target, key) {
@@ -27,14 +30,15 @@ export function createReactive<T extends RawData>(initialData: T): T {
 }
 
 function trigger<T extends RawData>(target: T, key: string | symbol) {
-  const depsMap = effectMap.get(target);
+  const depsMap = reactiveMap.get(target);
 
   if (depsMap) {
     const effectSet = depsMap.get(key);
     if (effectSet) {
-      effectSet.forEach(fn => {
-        cleanup(fn);
-        fn()
+      [...effectSet].forEach(effectFn => {
+        if(effectFn !== activeEffect) {
+          effectFn();
+        }
       });
     }
   }
@@ -45,41 +49,43 @@ function track<T extends RawData>(target: T, key: string | symbol) {
     return;
   }
 
-  let depsMap = effectMap.get(target);
+  let depsMap = reactiveMap.get(target);
   if (!depsMap) {
     depsMap = new Map<string, Dep>();
-    effectMap.set(target, depsMap);
+    reactiveMap.set(target, depsMap);
   }
 
   let effectSet = depsMap.get(key);
   if (!effectSet) {
-    effectSet = new Set<Effect>();
+    effectSet = new Set<EffectFn>();
     depsMap.set(key, effectSet);
   }
 
   effectSet.add(activeEffect);
 
-  let dependenciesSet = activeEffectDependencies.get(activeEffect);
-  if (!dependenciesSet) {
-    dependenciesSet = new Set<Dep>();
-    activeEffectDependencies.set(activeEffect, dependenciesSet);
-
-  }
-  dependenciesSet.add(effectSet);
+  activeEffect.deps.add(effectSet);
 }
 
-export function createEffect(fn: Effect) {
+export function createEffect(fn: () => void) {
   try {
-    activeEffect = fn;
-    fn()
+    const effectFn: EffectFn = () => {
+      cleanup(effectFn);
+
+      activeEffect = effectFn;
+      effectStack.push(effectFn);
+      fn();
+    }
+    effectFn.deps = new Set<Dep>();
+    effectFn();
   } catch (err) {
     console.error(err);
   } finally {
-    activeEffect = null
+    effectStack.pop();
+    activeEffect = effectStack[effectStack.length - 1] ?? null;
   }
 }
 
-function cleanup(fn: Effect) {
-  const dependenciesSet = activeEffectDependencies.get(fn);
-  dependenciesSet && dependenciesSet.forEach(depSet => depSet.delete(fn));
+function cleanup(effectFn: EffectFn) {
+  effectFn.deps.forEach(depSet => depSet.delete(effectFn));
+  effectFn.deps.clear();
 }
