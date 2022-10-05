@@ -215,4 +215,17 @@ describe('reactive', () => {
     commonData.x++
     expect(fn).toBeCalledTimes(2)
   })
+
+  it('nested computed should update correctly', () => {
+    const double = computed(() => {
+      return 2 * commonData.x
+    })
+
+    const doubleOfDouble = computed(() => {
+      return 2 * double.value
+    })
+    commonData.x = 1
+    expect(double.value).toEqual(2)
+    expect(doubleOfDouble.value).toEqual(4)
+  })
 })
