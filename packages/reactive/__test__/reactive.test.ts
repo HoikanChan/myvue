@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, createEffect, createReactive, queueScheduler, watch } from '..'
+import { queueScheduler } from '../schedulers/queue-scheduler'
+import { computed } from '../computed'
+import { watch } from '../watch'
+import { createEffect, createReactive } from '..'
 import { clearLog, getLog, log } from './utils'
 
 describe('reactive', () => {

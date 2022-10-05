@@ -1,4 +1,4 @@
-import type { Computed, Dep, DepMap, EffectFn, EffectSettings, RawData } from './types'
+import type { Dep, DepMap, EffectFn, EffectSettings, RawData } from './types'
 
 let activeEffect: EffectFn<any> | null = null
 const effectStack: EffectFn<any>[] = []
@@ -22,7 +22,7 @@ export function createReactive<T extends RawData>(initialData: T): T {
   return reactive
 }
 
-function trigger<T extends RawData>(target: T, key: string | symbol) {
+export function trigger<T extends RawData>(target: T, key: string | symbol) {
   const depsMap = reactiveMap.get(target)
 
   if (depsMap) {
@@ -41,7 +41,7 @@ function trigger<T extends RawData>(target: T, key: string | symbol) {
   }
 }
 
-function track<T extends RawData>(target: T, key: string | symbol) {
+export function track<T extends RawData>(target: T, key: string | symbol) {
   if (!activeEffect)
     return
 
@@ -95,77 +95,3 @@ function cleanup(effectFn: EffectFn<any>) {
   effectFn.deps.clear()
 }
 
-let isFlushing = false
-let effectQueue: EffectFn<any>[] = []
-export function queueScheduler(fn: EffectFn<any>) {
-  if (!effectQueue.includes(fn))
-    effectQueue.push(fn)
-
-  if (!isFlushing) {
-    isFlushing = true
-    Promise.resolve().then(() => {
-      effectQueue.forEach(fn => fn())
-    }).finally(() => {
-      isFlushing = false
-      effectQueue = []
-    })
-  }
-}
-export function computed<T>(fn: () => T): Computed<T> {
-  let valueCache: T
-  let dirty = true
-  const effect = createEffect<T>(fn, {
-    lazy: true,
-    scheduler: () => {
-      dirty = true
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      trigger(valueAgent, 'value')
-    },
-  })
-
-  const valueAgent = {
-    get value() {
-      if (dirty) {
-        valueCache = effect()
-        dirty = false
-      }
-
-      // track effect if computed is used in it
-      track(valueAgent, 'value')
-      return valueCache
-    },
-  }
-  return valueAgent
-}
-
-export function watch<T>(source: T | (() => T), callback: (newVal: T, oldVal: T) => void) {
-  let getter: Function
-  if (typeof source === 'function')
-    getter = source
-  else
-    getter = () => traverse(source)
-
-  let newVal: T, oldVal: T
-  const effectFn = createEffect(
-    () => getter(),
-    {
-      lazy: true,
-      scheduler: () => {
-        newVal = effectFn()
-        callback(newVal, oldVal)
-        oldVal = newVal
-      },
-    },
-  )
-  oldVal = effectFn()
-}
-
-function traverse(value: any, seen = new Set()) {
-  if (typeof value !== 'object' || value === null || seen.has(value))
-    return
-  seen.add(value)
-  for (const k in value)
-    traverse(value[k], seen)
-
-  return value
-}
