@@ -250,4 +250,40 @@ describe('reactive', () => {
     expect(fn).toBeCalledTimes(1)
     expect(fn2).toBeCalledWith(1, 0)
   })
+
+  /*
+  * First modification -> mock 1
+  * Second modification start -> mock 2
+  * mock 2 completed -> set mock1 expired and finalData equal result of mock 2
+  * mock 1 completed -> abandon
+  */
+  it('watch should handle race condition', () => {
+    let finalData: number
+    let times = 0
+    vi.useFakeTimers()
+
+    const mockFetch = (data: number) => new Promise<number>((resolve) => {
+      setTimeout(() => { resolve(data) }, 600 - times * 300)
+    })
+    watch(commonData, async (newVal, oldVal, onInvalidate) => {
+      let expired = false
+      onInvalidate(() => {
+        expired = true
+      })
+
+      const res = await mockFetch(times++)
+
+      if (!expired)
+        finalData = res
+    })
+
+    commonData.x++
+    setTimeout(() => {
+      commonData.x++
+    }, 100)
+    vi.runAllTimers()
+    Promise.resolve().then(() => {
+      expect(finalData).toEqual(1)
+    })
+  })
 })
