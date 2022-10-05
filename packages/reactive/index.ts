@@ -1,19 +1,18 @@
-import type { Dep, DepMap, EffectFn, EffectSettings, RawData } from './types'
+import type { Computed, Dep, DepMap, EffectFn, EffectSettings, RawData } from './types'
 
-let activeEffect: EffectFn | null = null
-const effectStack: EffectFn[] = []
+let activeEffect: EffectFn<any> | null = null
+const effectStack: EffectFn<any>[] = []
 const reactiveMap = new WeakMap<RawData, DepMap>()
 export function createReactive<T extends RawData>(initialData: T): T {
   const reactive = new Proxy(initialData, {
     get(target, key) {
       track<T>(target, key)
 
-      return target[key]
+      return Reflect.get(target, key)
     },
 
     set(target, key, value) {
-      target[key] = value
-
+      Reflect.set(target, key, value)
       trigger<T>(target, key)
 
       return true
@@ -54,7 +53,7 @@ function track<T extends RawData>(target: T, key: string | symbol) {
 
   let effectSet = depsMap.get(key)
   if (!effectSet) {
-    effectSet = new Set<EffectFn>()
+    effectSet = new Set<EffectFn<any>>()
     depsMap.set(key, effectSet)
   }
 
@@ -63,36 +62,42 @@ function track<T extends RawData>(target: T, key: string | symbol) {
   activeEffect.deps.add(effectSet)
 }
 
-export function createEffect(fn: () => void, settings: EffectSettings = {}) {
+export function createEffect<T>(fn: () => T, settings: EffectSettings = {}): EffectFn<T> {
   try {
-    const effectFn: EffectFn = () => {
+    const effectFn: EffectFn<T> = () => {
       cleanup(effectFn)
 
       activeEffect = effectFn
       effectStack.push(effectFn)
-      fn()
+
+      const result = fn()
+
+      effectStack.pop()
+      activeEffect = effectStack[effectStack.length - 1] ?? null
+      return result
     }
     effectFn.settings = settings
     effectFn.deps = new Set<Dep>()
-    effectFn()
+
+    if (!settings.lazy)
+      effectFn()
+
+    return effectFn
   }
   catch (err) {
     console.error(err)
-  }
-  finally {
-    effectStack.pop()
-    activeEffect = effectStack[effectStack.length - 1] ?? null
+    throw err
   }
 }
 
-function cleanup(effectFn: EffectFn) {
+function cleanup(effectFn: EffectFn<any>) {
   effectFn.deps.forEach(depSet => depSet.delete(effectFn))
   effectFn.deps.clear()
 }
 
 let isFlushing = false
-let effectQueue: EffectFn[] = []
-export function queueScheduler(fn: EffectFn) {
+let effectQueue: EffectFn<any>[] = []
+export function queueScheduler(fn: EffectFn<any>) {
   if (!effectQueue.includes(fn))
     effectQueue.push(fn)
 
@@ -105,4 +110,25 @@ export function queueScheduler(fn: EffectFn) {
       effectQueue = []
     })
   }
+}
+export function computed<T>(fn: () => T): Computed<T> {
+  let valueCache: T
+  let dirty = true
+  const effect = createEffect<T>(fn, {
+    lazy: true,
+    scheduler: () => {
+      dirty = true
+    },
+  })
+
+  const valueAgent = {
+    get value() {
+      if (dirty) {
+        valueCache = effect()
+        dirty = false
+      }
+      return valueCache
+    },
+  }
+  return valueAgent
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEffect, createReactive, queueScheduler } from '..'
+import { computed, createEffect, createReactive, queueScheduler } from '..'
 import { clearLog, getLog, log } from './utils'
 
 describe('reactive', () => {
@@ -82,11 +82,11 @@ describe('reactive', () => {
     `)
     state.mobileWidth = 'm:100'
     expect(getLog()).toMatchInlineSnapshot(`
-    [
-      "m:0",
-      "pc:0",
-    ]
-  `)
+      [
+        "m:0",
+        "pc:0",
+      ]
+    `)
   })
 
   it('nested effect should trigger correctly', () => {
@@ -171,5 +171,33 @@ describe('reactive', () => {
         ]
       `)
     })
+  })
+
+  it('lazy option should not activate effect at once', () => {
+    const fn = vi.fn()
+    createEffect(() => {
+      fn()
+    }, {
+      lazy: true,
+    })
+    expect(fn).toBeCalledTimes(0)
+  })
+
+  it('computed should get correct value', () => {
+    const fn = vi.fn()
+
+    const cpt = computed(() => {
+      fn()
+      return commonData.x + 1
+    })
+    // Computed should not activate effect before call the value getter function
+    expect(fn).toBeCalledTimes(0)
+    expect(cpt.value).toEqual(1)
+
+    commonData.x++
+    expect(cpt.value).toEqual(2)
+    expect(cpt.value).toEqual(2)
+
+    expect(fn).toBeCalledTimes(2)
   })
 })
