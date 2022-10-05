@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, createEffect, createReactive, queueScheduler } from '..'
+import { computed, createEffect, createReactive, queueScheduler, watch } from '..'
 import { clearLog, getLog, log } from './utils'
 
 describe('reactive', () => {
@@ -227,5 +227,24 @@ describe('reactive', () => {
     commonData.x = 1
     expect(double.value).toEqual(2)
     expect(doubleOfDouble.value).toEqual(4)
+  })
+
+  it('watch should call', () => {
+    const data = createReactive({
+      x: 0,
+    })
+    const fn = vi.fn()
+    watch(data, () => {
+      fn()
+    })
+
+    const fn2 = vi.fn()
+    watch(() => data.x, (newVal: any, oldVal: any) => {
+      fn2(newVal, oldVal)
+    })
+
+    data.x = 1
+    expect(fn).toBeCalledTimes(1)
+    expect(fn2).toBeCalledWith(1, 0)
   })
 })
