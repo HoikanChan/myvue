@@ -200,4 +200,19 @@ describe('reactive', () => {
 
     expect(fn).toBeCalledTimes(2)
   })
+
+  it('computed update should activate the effect', () => {
+    const fn = vi.fn()
+
+    const double = computed(() => {
+      return 2 * commonData.x + 1
+    })
+
+    createEffect(() => {
+      fn(double.value)
+    })
+
+    commonData.x++
+    expect(fn).toBeCalledTimes(2)
+  })
 })

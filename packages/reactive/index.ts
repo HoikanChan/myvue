@@ -118,6 +118,8 @@ export function computed<T>(fn: () => T): Computed<T> {
     lazy: true,
     scheduler: () => {
       dirty = true
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      trigger(valueAgent, 'value')
     },
   })
 
@@ -127,6 +129,9 @@ export function computed<T>(fn: () => T): Computed<T> {
         valueCache = effect()
         dirty = false
       }
+
+      // track effect if computed is used in it
+      track(valueAgent, 'value')
       return valueCache
     },
   }
